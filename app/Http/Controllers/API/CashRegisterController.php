@@ -1,157 +1,124 @@
 <?php
+
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\CashRegister;
 use App\Models\Transaction;
-use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
-
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class CashRegisterController extends Controller
 {
-    /**
-     * Open today's cash register
-     */
-    public function open(Request $request)
-    {
-        try {
-            $user = $request->user();
+    /* =========================
+       Abrir caja
+    ========================= */
+public function open(Request $request)
+{
+    $user = Auth::guard('api')->user();
 
-            $validated = $request->validate([
-                'opening_cash_pen' => ['required', 'numeric', 'min:0'],
-                'opening_cash_bob' => ['nullable', 'numeric', 'min:0'],
-                'opening_cash_usd' => ['nullable', 'numeric', 'min:0'],
-                'opening_gold'     => ['required', 'numeric', 'min:0'],
-            ]);
+    $cashRegister = CashRegister::create([
+        'company_id' => $user->company_id,
+        'name' => 'Caja ' . now()->format('Y-m-d'),
+        'date' => now()->toDateString(),
 
-            $today = Carbon::today()->toDateString();
+        'opening_cash_pen' => $request->opening_cash_pen,
+        'opening_cash_bob' => $request->opening_cash_bob,
+        'opening_cash_usd' => $request->opening_cash_usd,
+        'opening_gold' => $request->opening_gold,
 
-            // Prevent duplicate cash register
-            if (CashRegister::where('date', $today)->exists()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cash register is already opened today.',
-                    'data'    => null,
-                ], 409);
-            }
+        'balance_pen' => $request->opening_cash_pen,
+        'balance_bob' => $request->opening_cash_bob,
+        'balance_usd' => $request->opening_cash_usd,
 
-            $cashRegister = CashRegister::create([
-                'date'             => $today,
-                'opening_cash_pen' => $validated['opening_cash_pen'],
-                'opening_cash_bob' => $validated['opening_cash_bob'] ?? 0,
-                'opening_cash_usd' => $validated['opening_cash_usd'] ?? 0,
-                'opening_gold'     => $validated['opening_gold'],
-                'balance_pen'      => $validated['opening_cash_pen'],
-                'balance_bob'      => $validated['opening_cash_bob'] ?? 0,
-                'balance_usd'      => $validated['opening_cash_usd'] ?? 0,
-                'opened_by'        => $user->id,
-                'status'           => 'open',
-            ]);
+        'opened_by' => $user->id,
+        'status' => 'open'
+    ]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Cash register opened successfully.',
-                'data'    => $cashRegister,
-            ], 201);
+    return response()->json([
+        'message' => 'Caja abierta correctamente',
+        'data' => $cashRegister
+    ]);
+}
+    /* =========================
+       Cerrar caja
+    ========================= */
 
-        } catch (\Throwable $th) {
-            \Log::error('Error opening cash register: '.$th->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Error opening cash register.',
-                'error'   => $th->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Close today's cash register
-     */
     public function close(Request $request)
     {
-        try {
-            $validated = $request->validate([
-                'closing_cash_pen' => ['required', 'numeric', 'min:0'],
-                'closing_cash_bob' => ['nullable', 'numeric', 'min:0'],
-                'closing_cash_usd' => ['nullable', 'numeric', 'min:0'],
-                'closing_gold'     => ['required', 'numeric', 'min:0'],
-            ]);
+        $user = $request->user();
 
-            $cashRegister = CashRegister::where('date', Carbon::today()->toDateString())->first();
+        $validated = $request->validate([
+            'closing_cash_pen' => 'required|numeric|min:0',
+            'closing_cash_bob' => 'nullable|numeric|min:0',
+            'closing_cash_usd' => 'nullable|numeric|min:0',
+            'closing_gold'     => 'required|numeric|min:0',
+        ]);
 
-            if (!$cashRegister) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No cash register opened today.',
-                    'data'    => null,
-                ], 404);
-            }
+        $cashRegister = CashRegister::current($user->company_id);
 
-            if ($cashRegister->status === 'closed') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cash register is already closed.',
-                    'data'    => $cashRegister,
-                ], 409);
-            }
-
-            $cashRegister->update([
-                'closing_cash_pen' => $validated['closing_cash_pen'],
-                'closing_cash_bob' => $validated['closing_cash_bob'] ?? 0,
-                'closing_cash_usd' => $validated['closing_cash_usd'] ?? 0,
-                'closing_gold'     => $validated['closing_gold'],
-                'closed_by'        => $request->user()->id,
-                'status'           => 'closed',
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Cash register closed successfully.',
-                'data'    => $cashRegister,
-            ], 200);
-
-        } catch (\Throwable $th) {
-            \Log::error('Error closing cash register: '.$th->getMessage());
+        if (!$cashRegister) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error closing cash register.',
-                'error'   => $th->getMessage(),
-            ], 500);
+                'message' => 'No hay caja abierta.'
+            ], 404);
         }
+
+        $cashRegister->close($user, $validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Caja cerrada correctamente',
+            'data' => $cashRegister
+        ]);
     }
 
-    /**
-     * Get today's cash register
-     */
-    public function today()
+    /* =========================
+       Caja actual
+    ========================= */
+
+    public function current(Request $request)
     {
-        try {
-            $cashRegister = CashRegister::where('date', Carbon::today()->toDateString())->first();
+        $cashRegister = CashRegister::current($request->user()->company_id);
 
-            if (!$cashRegister) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No cash register opened today.',
-                    'data'    => null,
-                ], 404);
-            }
+        return response()->json([
+            'success' => true,
+            'data' => $cashRegister
+        ]);
+    }
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Today\'s cash register found.',
-                'data'    => $cashRegister,
-            ], 200);
+    /* =========================
+       Historial de cajas
+    ========================= */
 
-        } catch (\Throwable $th) {
-            \Log::error('Error fetching today\'s cash register: '.$th->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Error fetching today\'s cash register.',
-                'error'   => $th->getMessage(),
-            ], 500);
-        }
+    public function history(Request $request)
+    {
+        $cashRegisters = CashRegister::where('company_id', $request->user()->company_id)
+            ->orderBy('date', 'desc')
+            ->paginate(20);
+
+        return response()->json([
+            'success' => true,
+            'data' => $cashRegisters
+        ]);
+    }
+
+    /* =========================
+       Ver detalle de caja
+    ========================= */
+
+    public function show(Request $request, $id)
+    {
+        $cashRegister = CashRegister::where('company_id', $request->user()->company_id)
+            ->with(['transactions', 'openedBy', 'closedBy'])
+            ->findOrFail($id);
+
+        return response()->json([
+            'success' => true,
+            'data' => $cashRegister
+        ]);
     }
 
         /**
@@ -180,7 +147,6 @@ class CashRegisterController extends Controller
             ], 500);
         }
     }
-
 
     /**
      * Resumen completo del día
@@ -233,9 +199,36 @@ class CashRegisterController extends Controller
     }
 }
 
-  /**
-     * Resumen completo del día
+    /**
+     * Get today's cash register
      */
+    public function today()
+    {
+        try {
+            $cashRegister = CashRegister::where('date', Carbon::today()->toDateString())->first();
 
- 
+            if (!$cashRegister) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No cash register opened today.',
+                    'data'    => null,
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Today\'s cash register found.',
+                'data'    => $cashRegister,
+            ], 200);
+
+        } catch (\Throwable $th) {
+            \Log::error('Error fetching today\'s cash register: '.$th->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching today\'s cash register.',
+                'error'   => $th->getMessage(),
+            ], 500);
+        }
+    }
+
 }

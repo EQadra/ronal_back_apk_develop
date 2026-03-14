@@ -44,10 +44,14 @@ class AuthController extends Controller
             'avatar'     => 'https://picsum.photos/seed/male/200',
         ]);
 
-        // Opcional: asignar rol owner
+        // Asignar rol owner
         $user->assignRole('owner');
 
         $token = Auth::guard('api')->login($user);
+
+        // 🔹 Guardar token actual
+        $user->current_token = $token;
+        $user->save();
 
         return response()->json([
             'message' => 'Usuario y empresa creados correctamente.',
@@ -85,6 +89,10 @@ class AuthController extends Controller
         }
 
         $user = Auth::guard('api')->user()->load('company');
+
+        // 🔹 Guardar token actual
+        $user->current_token = $token;
+        $user->save();
 
         return response()->json([
             'message' => 'Inicio de sesión exitoso.',
@@ -132,6 +140,14 @@ class AuthController extends Controller
      */
     public function logout()
     {
+        $user = Auth::guard('api')->user();
+
+        if ($user) {
+            // 🔹 Limpiar token actual
+            $user->current_token = null;
+            $user->save();
+        }
+
         Auth::guard('api')->logout();
 
         return response()->json([
@@ -144,8 +160,18 @@ class AuthController extends Controller
      */
     public function refresh()
     {
+        $newToken = Auth::guard('api')->refresh();
+
+        $user = Auth::guard('api')->user();
+
+        if ($user) {
+            // 🔹 Actualizar token
+            $user->current_token = $newToken;
+            $user->save();
+        }
+
         return response()->json([
-            'access_token' => Auth::guard('api')->refresh(),
+            'access_token' => $newToken,
             'token_type'   => 'bearer',
             'expires_in'   => Auth::guard('api')->factory()->getTTL() * 60,
         ]);

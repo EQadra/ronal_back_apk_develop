@@ -6,59 +6,86 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Models\Company;
 
 class CashRegister extends Model
 {
     use HasFactory;
 
+    /* =========================
+       Constantes de estado
+    ========================= */
+
+    const STATUS_OPEN = 'open';
+    const STATUS_CLOSED = 'closed';
+
+    /* =========================
+       Fillable
+    ========================= */
+
     protected $fillable = [
+        'company_id',
         'name',
 
-        // 💰 Montos de apertura
+        // apertura
         'opening_cash_pen',
         'opening_cash_bob',
         'opening_cash_usd',
         'opening_gold',
 
-        // 🔒 Montos de cierre
+        // cierre
         'closing_cash_pen',
         'closing_cash_bob',
         'closing_cash_usd',
         'closing_gold',
 
-        // 👤 Usuario que abrió / cerró caja
+        // usuarios
         'opened_by',
         'closed_by',
 
-        // 📌 Estado
-        'status', // open | closed
+        // estado
+        'status',
 
-        // 📅 Fecha de operación
+        // fecha
         'date',
 
-        // 📊 Saldos calculados
+        // balances
         'balance_pen',
         'balance_usd',
         'balance_bob',
     ];
 
     /* =========================
+       Casts
+    ========================= */
+
+    protected $casts = [
+        'opening_cash_pen' => 'float',
+        'opening_cash_bob' => 'float',
+        'opening_cash_usd' => 'float',
+        'opening_gold' => 'float',
+
+        'closing_cash_pen' => 'float',
+        'closing_cash_bob' => 'float',
+        'closing_cash_usd' => 'float',
+        'closing_gold' => 'float',
+
+        'balance_pen' => 'float',
+        'balance_usd' => 'float',
+        'balance_bob' => 'float',
+
+        'date' => 'date',
+    ];
+
+    /* =========================
        Relaciones
     ========================= */
 
-    // Usuario que abrió la caja
-    public function userOpened()
+    public function company()
     {
-        return $this->belongsTo(User::class, 'opened_by');
+        return $this->belongsTo(Company::class);
     }
 
-    // Usuario que cerró la caja
-    public function userClosed()
-    {
-        return $this->belongsTo(User::class, 'closed_by');
-    }
-
-    // Alias opcionales
     public function openedBy()
     {
         return $this->belongsTo(User::class, 'opened_by');
@@ -69,47 +96,76 @@ class CashRegister extends Model
         return $this->belongsTo(User::class, 'closed_by');
     }
 
-    // Transacciones relacionadas a esta caja
     public function transactions()
     {
         return $this->hasMany(Transaction::class);
     }
 
     /* =========================
-       Métodos de utilidad
+       Métodos de estado
     ========================= */
 
-    /**
-     * Retorna true si la caja está abierta
-     */
     public function isOpen(): bool
     {
-        return $this->status === 'open';
+        return $this->status === self::STATUS_OPEN;
     }
 
-    /**
-     * Aplica la transacción al saldo de la caja
-     */
+    public function isClosed(): bool
+    {
+        return $this->status === self::STATUS_CLOSED;
+    }
+
+    /* =========================
+       Obtener caja actual
+    ========================= */
+
+    public static function current(int $companyId): ?self
+    {
+        return self::where('company_id', $companyId)
+            ->where('status', self::STATUS_OPEN)
+            ->first();
+    }
+
+    /* =========================
+       Aplicar transacción
+    ========================= */
+
     public function applyTransaction(Transaction $transaction): void
     {
-        // Suma los totales de la transacción a los balances
-        $this->balance_pen += $transaction->total_pen;
-        $this->balance_usd += $transaction->total_usd;
-        $this->balance_bob += $transaction->total_bob;
+        $this->balance_pen = ($this->balance_pen ?? 0) + ($transaction->total_pen ?? 0);
+        $this->balance_usd = ($this->balance_usd ?? 0) + ($transaction->total_usd ?? 0);
+        $this->balance_bob = ($this->balance_bob ?? 0) + ($transaction->total_bob ?? 0);
 
         $this->save();
     }
 
-    /**
-     * Retorna el total de la caja por moneda
-     */
-    public function getTotal(string $moneda): float
+    /* =========================
+       Obtener total por moneda
+    ========================= */
+
+    public function getTotal(string $currency): float
     {
-        return match($moneda) {
-            'PEN' => $this->balance_pen,
-            'USD' => $this->balance_usd,
-            'BOB' => $this->balance_bob,
+        return match ($currency) {
+            'PEN' => $this->balance_pen ?? 0,
+            'USD' => $this->balance_usd ?? 0,
+            'BOB' => $this->balance_bob ?? 0,
             default => 0,
         };
+    }
+
+    /* =========================
+       Cerrar caja
+    ========================= */
+
+    public function close(User $user, array $data): void
+    {
+        $this->update([
+            'closing_cash_pen' => $data['closing_cash_pen'] ?? 0,
+            'closing_cash_usd' => $data['closing_cash_usd'] ?? 0,
+            'closing_cash_bob' => $data['closing_cash_bob'] ?? 0,
+            'closing_gold'     => $data['closing_gold'] ?? 0,
+            'closed_by'        => $user->id,
+            'status'           => self::STATUS_CLOSED,
+        ]);
     }
 }
