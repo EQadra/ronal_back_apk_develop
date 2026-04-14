@@ -1,37 +1,14 @@
 <?php
-
 return [
 
     'paths' => [
         'api/*',
-        'login',
-        'logout',
-        'me',
-        'profile',
-        'profile/*',
-        'usuarios',
-        'usuarios/*',
-        'productos',
-        'productos/*',
-        'transactions',
-        'transactions/*',
-        'transaccion',
-        'transacciones/dia',
-        'caja/abrir',
-        'caja/cerrar',
-        'caja/actual',
-        'roles',
-        'roles/*',
-        'permisos',
-        'permisos/*',
-        'reportes',
-        'admin/dashboard',
+        'sanctum/csrf-cookie', // 👈 FALTA ESTO (CRÍTICO)
     ],
 
     'allowed_methods' => ['*'],
 
-    // Para APK nativa es seguro usar '*'
-    'allowed_origins' => ['*'],
+    'allowed_origins' => ['http://localhost:5173'], // 👈 ESPECÍFICO
 
     'allowed_origins_patterns' => [],
 
@@ -41,7 +18,6 @@ return [
 
     'max_age' => 0,
 
-    // JWT NO usa cookies → debe ser false
-    'supports_credentials' => false,
+    'supports_credentials' => true, // 👈 NECESARIO PARA COOKIES
 
 ];

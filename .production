@@ -1,7 +1,8 @@
-APP_NAME=Laravel
+APP_NAME=BMGORO
+
 APP_ENV=production
 APP_KEY=base64:eUaW0zYX9GDTaEhFXUcS/JLchaC0hOzwxR2vwHu2ZmE=
-APP_DEBUG=false
+APP_DEBUG=true
 APP_URL=https://apiapk.tradingbmgperu.com
 
 APP_LOCALE=en
@@ -19,26 +20,9 @@ LOG_LEVEL=error
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=ronal_apk
-DB_USERNAME=root    
-DB_PASSWORD=
-
-
- #DB_CONNECTION=mysql
-# DB_HOST=127.0.0.1
-# DB_PORT=3306
-#DB_DATABASE=mlwhtxmy_apibackapk
-# DB_USERNAME=mlwhtxmy_backend_apk_user
-# DB_PASSWORD=NsH.qIgf@!#P
-
-#DB_CONNECTION=mysql
-#DB_HOST=127.0.0.1
-#DB_PORT=3306
-#DB_DATABASE=ronal_apk
-#DB_USERNAME=root
-#DB_PASSWORD=
-
-
+DB_DATABASE=mlwhtxmy_bmgoro_database
+DB_USERNAME=mlwhtxmy_bmgoro_user	
+DB_PASSWORD=+!^,*_u=Xsju
 
 SESSION_DRIVER=file
 SESSION_LIFETIME=120
@@ -75,6 +59,4 @@ AWS_USE_PATH_STYLE_ENDPOINT=false
 
 VITE_APP_NAME="${APP_NAME}"
 
-# *** GENERA ESTE SECRET EN TU LOCAL ***
-# php artisan jwt:secret
-JWT_SECRET=BOXXPGWI5xiCLdhaLZTXDcH1HO5iEZgI2n2DY9rcaOaYtAT9Cx6BJLjYoRCxIRxp
+JWT_SECRET=oIgmQMGQiVcETjYyYnrGG4V2ReaDGUE7CdtfsSOwzx3HfTTomNDXKCKWJqJ4YP0I

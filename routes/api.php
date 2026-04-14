@@ -21,7 +21,7 @@ Route::post('/password/forgot', [AuthController::class, 'sendResetLinkEmail']);
 Route::post('/password/reset',  [AuthController::class, 'resetPassword']);
 
 // 🔐 RUTAS PROTEGIDAS (JWT)
-Route::middleware('auth:api')->group(function () {
+Route::middleware(['auth:api', 'single.session'])->group(function () {
 
     // PERFIL
     Route::get('/profile', [AuthController::class, 'profile']);
